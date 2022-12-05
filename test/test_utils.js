@@ -5,7 +5,6 @@
 var utils = require('../lib/utils'),
     assert = require('assert');
 
-
 suite('utils', function () {
 
   test('capitalize', function () {
@@ -180,7 +179,7 @@ suite('utils', function () {
         tap.writeLong(1440756011948);
         var buf = utils.bufferFrom(['0xd8', '0xce', '0x80', '0xbc', '0xee', '0x53']);
         assert(tap.isValid());
-        assert(buf.equals(tap.buf));
+        assert.deepStrictEqual(buf, tap.buf);
 
       });
 
@@ -303,33 +302,33 @@ suite('utils', function () {
         l = 18932;
         t.writeLong(l);
         t.pos = 0;
-        assert.deepEqual(t.unpackLongBytes().readInt32LE(0), l);
+        assert.deepEqual(new DataView(t.unpackLongBytes().buffer).getInt32(0, true), l);
         t.pos = 0;
         l = -3210984;
         t.writeLong(l);
         t.pos = 0;
-        assert.deepEqual(t.unpackLongBytes().readInt32LE(0), l);
+        assert.deepEqual(new DataView(t.unpackLongBytes().buffer).getInt32(0, true), l);
       });
 
       test('pack single byte', function () {
         var t = newTap(10);
         var b = utils.newBuffer(8);
         b.fill(0);
-        b.writeInt32LE(12);
+        new DataView(b.buffer).setInt32(0, 12, true);
         t.packLongBytes(b);
         assert.equal(t.pos, 1);
         t.pos = 0;
         assert.deepEqual(t.readLong(), 12);
         t.pos = 0;
-        b.writeInt32LE(-37);
-        b.writeInt32LE(-1, 4);
+        new DataView(b.buffer).setInt32(0, -37, true);
+        new DataView(b.buffer).setInt32(4, -1, true);
         t.packLongBytes(b);
         assert.equal(t.pos, 1);
         t.pos = 0;
         assert.deepEqual(t.readLong(), -37);
         t.pos = 0;
-        b.writeInt32LE(-1);
-        b.writeInt32LE(-1, 4);
+        new DataView(b.buffer).setInt32(0, -1, true);
+        new DataView(b.buffer).setInt32(4, -1, true);
         t.packLongBytes(b);
         assert.deepEqual(t.buf.slice(0, t.pos), utils.bufferFrom([1]));
         t.pos = 0;
@@ -358,7 +357,7 @@ suite('utils', function () {
 
       test('roundtrip bytes', function () {
         roundtrip(utils.bufferFrom([0, 0, 0, 0, 0, 0, 0, 0]));
-        roundtrip(utils.bufferFrom('9007199254740995', 'hex'));
+        roundtrip(utils.bufferFrom([0x90, 0x07, 0x19, 0x92, 0x54, 0x74, 0x09, 0x95]));
 
         function roundtrip(b1) {
           var t = newTap(10);

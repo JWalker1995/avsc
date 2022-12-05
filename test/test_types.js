@@ -4,18 +4,16 @@
 
 var types = require('../lib/types'),
     utils = require('../lib/utils'),
-    assert = require('assert'),
-    buffer = require('buffer'),
-    util = require('util');
-
-
-var Buffer = buffer.Buffer;
+    assert = require('assert');
 
 var LogicalType = types.builtins.LogicalType;
 var Tap = utils.Tap;
 var Type = types.Type;
 var builtins = types.builtins;
 
+function inherits(constructor, superConstructor) {
+  Object.setPrototypeOf(constructor.prototype, superConstructor.prototype);
+}
 
 suite('types', function () {
 
@@ -67,7 +65,7 @@ suite('types', function () {
 
       var type = Type.forSchema('int');
       assert.equal(type.fromBuffer(utils.bufferFrom([0x80, 0x01])), 64);
-      assert(utils.bufferFrom([0]).equals(type.toBuffer(0)));
+      assert.deepStrictEqual(utils.bufferFrom([0]), type.toBuffer(0));
 
     });
 
@@ -192,13 +190,13 @@ suite('types', function () {
       var buf = utils.bufferFrom([0x06, 0x68, 0x69, 0x21]);
       var s = 'hi!';
       assert.equal(type.fromBuffer(buf), s);
-      assert(buf.equals(type.toBuffer(s)));
+      assert.deepStrictEqual(buf, type.toBuffer(s));
     });
 
     test('toBuffer string', function () {
       var type = Type.forSchema('string');
       var buf = utils.bufferFrom([0x06, 0x68, 0x69, 0x21]);
-      assert(buf.equals(type.toBuffer('hi!', 1)));
+      assert.deepStrictEqual(buf, type.toBuffer('hi!', 1));
     });
 
     test('resolve string > bytes', function () {
@@ -352,7 +350,7 @@ suite('types', function () {
       clone[0] = 0;
       assert.equal(buf[0], 1);
       assert.throws(function () { t.clone(s); });
-      clone = t.clone(buf.toJSON(), {coerceBuffers: true});
+      clone = t.clone({type: 'Buffer', data: Array.from(buf)}, {coerceBuffers: true});
       assert.deepEqual(clone, buf);
       assert.throws(function () { t.clone(1, {coerceBuffers: true}); });
     });
@@ -1009,7 +1007,7 @@ suite('types', function () {
         schema: {name: 'Foo', size: 2},
         valid: [utils.bufferFrom([1, 2]), utils.bufferFrom([2, 3])],
         invalid: ['HEY', null, undefined, 0, utils.newBuffer(1), utils.newBuffer(3)],
-        check: function (a, b) { assert(a.equals(b)); }
+        check: function (a, b) { assert.deepStrictEqual(a, b); }
       }
     ];
 
@@ -1080,7 +1078,7 @@ suite('types', function () {
       assert.equal(buf[0], 1);
       assert.throws(function () { t.clone(s); });
       assert.throws(function () { t.clone(s, {}); });
-      clone = t.clone(buf.toJSON(), {coerceBuffers: true});
+      clone = t.clone({type: 'Buffer', data: Array.from(buf)}, {coerceBuffers: true});
       assert.deepEqual(clone, buf);
       assert.throws(function () { t.clone(1, {coerceBuffers: true}); });
       assert.throws(function () { t.clone(utils.bufferFrom([2])); });
@@ -2454,7 +2452,7 @@ suite('types', function () {
           if (neg) { // Negative number.
             invert(buf);
           }
-          var n = buf.readInt32LE(0) + Math.pow(2, 32) * buf.readInt32LE(4);
+          var n = new DataView(buf.buffer).getInt32(0, true) + Math.pow(2, 32) * new DataView(buf.buffer).getInt32(4, true);
           if (neg) {
             invert(buf);
             n = -n - 1;
@@ -2468,9 +2466,9 @@ suite('types', function () {
             invert(buf);
             n = -n - 1;
           }
-          buf.writeInt32LE(n | 0);
+          new DataView(buf.buffer).setInt32(0, n | 0, true);
           var h = n / Math.pow(2, 32) | 0;
-          buf.writeInt32LE(h ? h : (n >= 0 ? 0 : -1), 4);
+          new DataView(buf.buffer).setInt32(4, h ? h : (n >= 0 ? 0 : -1), true);
           if (neg) {
             invert(buf);
           }
@@ -2626,7 +2624,7 @@ suite('types', function () {
         toBuffer: function (obj) { return obj.value; },
         fromJSON: function () { throw new Error(); },
         toJSON: function () { throw new Error(); },
-        isValid: function (obj) { return obj && Buffer.isBuffer(obj.value); },
+        isValid: function (obj) { return obj && obj.value instanceof Uint8Array; },
         compare: function () { throw new Error(); }
       }, true);
       var t = Type.forSchema(['null', 'long'], {registry: {'long': longType}});
@@ -2663,7 +2661,7 @@ suite('types', function () {
         throw new Error('invalid underlying date type');
       }
     }
-    util.inherits(DateType, LogicalType);
+    inherits(DateType, LogicalType);
 
     DateType.prototype._fromValue = function (val) { return new Date(val); };
 
@@ -2688,7 +2686,7 @@ suite('types', function () {
     function AgeType(schema, opts) {
       LogicalType.call(this, schema, opts);
     }
-    util.inherits(AgeType, LogicalType);
+    inherits(AgeType, LogicalType);
 
     AgeType.prototype._fromValue = function (val) { return val; };
 
@@ -2797,7 +2795,7 @@ suite('types', function () {
       function PersonType(schema, opts) {
         LogicalType.call(this, schema, opts);
       }
-      util.inherits(PersonType, LogicalType);
+      inherits(PersonType, LogicalType);
 
       PersonType.prototype._fromValue = function (val) {
         return new Person(val.friends);
@@ -2828,7 +2826,7 @@ suite('types', function () {
       function BoxType(schema, opts) {
         LogicalType.call(this, schema, opts);
       }
-      util.inherits(BoxType, LogicalType);
+      inherits(BoxType, LogicalType);
 
       BoxType.prototype._fromValue = function (val) { return val.unboxed; };
 
@@ -2920,7 +2918,7 @@ suite('types', function () {
       function EvenIntType(schema, opts) {
         LogicalType.call(this, schema, opts);
       }
-      util.inherits(EvenIntType, LogicalType);
+      inherits(EvenIntType, LogicalType);
       EvenIntType.prototype._fromValue = function (val) {
         if (val !== (val | 0) || val % 2) {
           throw new Error('invalid');
@@ -2979,7 +2977,7 @@ suite('types', function () {
       function FooType(schema, opts) {
         LogicalType.call(this, schema, opts);
       }
-      util.inherits(FooType, LogicalType);
+      inherits(FooType, LogicalType);
       assert.throws(function () {
         types.Type.forSchema([
           'int',
@@ -2992,7 +2990,7 @@ suite('types', function () {
       function EvenIntType(schema, opts) {
         LogicalType.call(this, schema, opts);
       }
-      util.inherits(EvenIntType, LogicalType);
+      inherits(EvenIntType, LogicalType);
       EvenIntType.prototype._fromValue = function (val) {
         if (val !== (val | 0) || val % 2) {
           throw new Error('invalid');
@@ -3013,7 +3011,7 @@ suite('types', function () {
       function PassThroughType(schema, opts) {
         LogicalType.call(this, schema, opts);
       }
-      util.inherits(PassThroughType, LogicalType);
+      inherits(PassThroughType, LogicalType);
       PassThroughType.prototype._fromValue = function (val) { return val; };
       PassThroughType.prototype._toValue = PassThroughType.prototype._fromValue;
 
@@ -3077,7 +3075,7 @@ suite('types', function () {
       function UnwrappedUnionType(schema, opts) {
         LogicalType.call(this, schema, opts);
       }
-      util.inherits(UnwrappedUnionType, LogicalType);
+      inherits(UnwrappedUnionType, LogicalType);
 
       UnwrappedUnionType.prototype._fromValue = function (val) {
         return val === null ? null : val[Object.keys(val)[0]];
@@ -3157,7 +3155,7 @@ suite('types', function () {
           var type = this.getUnderlyingType().getTypes()[1];
           this.name = type.getName(true);
         }
-        util.inherits(OptionalType, LogicalType);
+        inherits(OptionalType, LogicalType);
 
         OptionalType.prototype._fromValue = function (val) {
           return val === null ? null : val[this.name];
@@ -3415,9 +3413,7 @@ suite('types', function () {
 
     test('fingerprint', function () {
       var t = Type.forSchema('int');
-      var buf = utils.bufferFrom('ef524ea1b91e73173d938ade36c1db32', 'hex');
-      assert.deepEqual(t.fingerprint('md5'), buf);
-      assert.deepEqual(t.fingerprint(), buf);
+      assert.deepEqual(t.fingerprint(), 34637109);
     });
 
     test('getSchema default', function () {
@@ -3981,7 +3977,7 @@ suite('types', function () {
       var opts = {logicalTypes: {even: EvenType, odd: OddType}};
 
       function EvenType(schema, opts) { LogicalType.call(this, schema, opts); }
-      util.inherits(EvenType, LogicalType);
+      inherits(EvenType, LogicalType);
       EvenType.prototype._fromValue = function (val) { return 2 * val; };
       EvenType.prototype._toValue = function (any) {
         if (any === (any | 0) && any % 2 === 0) {
@@ -3990,7 +3986,7 @@ suite('types', function () {
       };
 
       function OddType(schema, opts) { LogicalType.call(this, schema, opts); }
-      util.inherits(OddType, LogicalType);
+      inherits(OddType, LogicalType);
       OddType.prototype._fromValue = function (val) { return 2 * val + 1; };
       OddType.prototype._toValue = function (any) {
         if (any === (any | 0) && any % 2 === 1) {
